@@ -1,52 +1,51 @@
-name: ML Training Pipeline
+name: Training Pipeline
 
 on:
   push:
     branches:
-      - main  # change this if your main branch has a different name
+      - main
     paths:
-      - 'pipelines/**'
-      - 'data/**'
+      - '**.py'
       - 'requirements.txt'
-      - '.github/workflows/training-pipeline.yml'
 
 jobs:
   train:
     runs-on: ubuntu-latest
-    
+    env:
+      MLFLOW_TRACKING_URI: http://127.0.0.1:5000
+      KERAS_BACKEND: jax
+      PYTHON_VERSION: "3.10"
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install scikit-learn pandas numpy keras "jax[cpu]" boto3 packaging mlflow setuptools python-dotenv
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install metaflow
+          pip install scikit-learn pandas numpy keras "jax[cpu]" mlflow setuptools python-dotenv
 
-    - name: Start MLflow server
-      run: |
-        mlflow server --host 127.0.0.1 --port 5000 &
-        echo "Waiting for MLflow server to start..."
-        sleep 10
+      - name: Start MLflow server
+        run: |
+          mlflow server --host 127.0.0.1 --port 5000 &
+          sleep 5  # Wait for server to start
 
-    - name: Run training pipeline
-      env:
-        MLFLOW_TRACKING_URI: http://127.0.0.1:5000
-        KERAS_BACKEND: jax
-      run: |
-        python pipelines/training.py --environment=pypi run
+      - name: Run Training Pipeline
+        run: |
+          python training.py run --accuracy-threshold 0.7
 
-    - name: Upload MLflow artifacts
-      if: always()  # This ensures artifacts are uploaded even if the training fails
-      uses: actions/upload-artifact@v3
-      with:
-        name: mlflow-artifacts
-        path: |
-          mlruns/
-          .metaflow/
+      - name: Upload Metaflow logs
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: metaflow-logs
+          path: |
+            .metaflow/
+            *.log
