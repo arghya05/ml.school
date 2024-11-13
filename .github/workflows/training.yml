@@ -16,11 +16,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install tensorflow  # Add this first
           pip install mlflow metaflow scikit-learn pandas numpy keras "jax[cpu]" python-dotenv
 
       - name: Test installation
         run: |
-          python -c "import mlflow, metaflow, sklearn, pandas, numpy, keras; print('All packages imported successfully')"
+          python -c "import tensorflow as tf; import mlflow, metaflow, sklearn, pandas, numpy, keras; print('All packages imported successfully')"
 
       - name: Start MLflow server
         run: |
@@ -36,7 +37,7 @@ jobs:
       - name: Run training pipeline
         env:
           MLFLOW_TRACKING_URI: http://127.0.0.1:5000
-          KERAS_BACKEND: jax
+          KERAS_BACKEND: tensorflow  # Changed from jax to tensorflow
         run: |
           python training.py run --accuracy-threshold 0.7
 
