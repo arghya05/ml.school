@@ -2,50 +2,37 @@ name: Training Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
     paths:
       - '**.py'
-      - 'requirements.txt'
+      - '.github/workflows/training-pipeline.yml'
 
 jobs:
   train:
     runs-on: ubuntu-latest
-    env:
-      MLFLOW_TRACKING_URI: http://127.0.0.1:5000
-      KERAS_BACKEND: jax
-      PYTHON_VERSION: "3.10"
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install metaflow
-          pip install scikit-learn pandas numpy keras "jax[cpu]" mlflow setuptools python-dotenv
-
       - name: Start MLflow server
         run: |
           mlflow server --host 127.0.0.1 --port 5000 &
-          sleep 5  # Wait for server to start
+          sleep 5
 
       - name: Run Training Pipeline
+        env:
+          MLFLOW_TRACKING_URI: http://127.0.0.1:5000
+          KERAS_BACKEND: jax
         run: |
           python training.py run --accuracy-threshold 0.7
 
-      - name: Upload Metaflow logs
-        uses: actions/upload-artifact@v3
+      - name: Upload artifacts
         if: always()
+        uses: actions/upload-artifact@v3
         with:
-          name: metaflow-logs
+          name: training-artifacts
           path: |
             .metaflow/
+            mlruns/
             *.log
+          retention-days: 7
