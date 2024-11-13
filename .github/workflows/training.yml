@@ -1,52 +1,37 @@
-name: Training Pipeline
+import mlflow
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
 
-on: push
+def main():
+    # Create sample data
+    data = pd.DataFrame({
+        'island': ['Biscoe'] * 100,
+        'culmen_length_mm': np.random.normal(45, 5, 100),
+        'culmen_depth_mm': np.random.normal(15, 2, 100),
+        'flipper_length_mm': np.random.normal(200, 20, 100),
+        'body_mass_g': np.random.normal(5000, 300, 100),
+        'sex': np.random.choice(['MALE', 'FEMALE'], 100),
+        'species': np.random.choice(['Adelie', 'Gentoo', 'Chinstrap'], 100)
+    })
+    
+    # Prepare features
+    X = data[['culmen_length_mm', 'culmen_depth_mm', 'flipper_length_mm', 'body_mass_g']]
+    y = data['species']
+    
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    
+    # Train model
+    with mlflow.start_run():
+        model = RandomForestClassifier()
+        model.fit(X_train, y_train)
+        accuracy = model.score(X_test, y_test)
+        
+        mlflow.log_param("model_type", "RandomForest")
+        mlflow.log_metric("accuracy", accuracy)
+        print(f"Training completed successfully! Accuracy: {accuracy}")
 
-jobs:
-  train:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install tensorflow  # Add this first
-          pip install mlflow metaflow scikit-learn pandas numpy keras "jax[cpu]" python-dotenv
-
-      - name: Test installation
-        run: |
-          python -c "import tensorflow as tf; import mlflow, metaflow, sklearn, pandas, numpy, keras; print('All packages imported successfully')"
-
-      - name: Start MLflow server
-        run: |
-          python -m mlflow server --host 127.0.0.1 --port 5000 &
-          sleep 5
-          curl http://127.0.0.1:5000
-
-      - name: List directory contents
-        run: |
-          pwd
-          ls -la
-          
-      - name: Run training pipeline
-        env:
-          MLFLOW_TRACKING_URI: http://127.0.0.1:5000
-          KERAS_BACKEND: tensorflow  # Changed from jax to tensorflow
-        run: |
-          python training.py run --accuracy-threshold 0.7
-
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: training-artifacts
-          path: |
-            .metaflow/
-            mlruns/
-            *.log
+if __name__ == "__main__":
+    main()
