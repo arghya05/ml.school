@@ -23,46 +23,60 @@ jobs:
           pip install tensorflow
           pip install mlflow metaflow scikit-learn pandas numpy keras python-dotenv
 
-      - name: Verify repository contents
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Directory contents:"
-          ls -la
-
-      - name: Create test script
+      - name: Create training script
         run: |
           echo "import mlflow
           import pandas as pd
           import numpy as np
           from sklearn.model_selection import train_test_split
-          
-          data = pd.DataFrame({
-              'feature': np.random.rand(100),
-              'target': np.random.choice(['A', 'B'], 100)
-          })
-          
-          X_train, X_test, y_train, y_test = train_test_split(
-              data['feature'].values.reshape(-1, 1),
-              data['target'],
-              test_size=0.2
-          )
-          
-          with mlflow.start_run():
-              mlflow.log_param('test_size', 0.2)
-              mlflow.log_metric('samples', len(data))
-              print('Training completed successfully!')" > test_training.py
+          from sklearn.ensemble import RandomForestClassifier
+
+          def train():
+              # Create sample penguin data
+              data = pd.DataFrame({
+                  'culmen_length_mm': np.random.normal(45, 5, 100),
+                  'culmen_depth_mm': np.random.normal(15, 2, 100),
+                  'flipper_length_mm': np.random.normal(200, 20, 100),
+                  'body_mass_g': np.random.normal(5000, 300, 100),
+                  'species': np.random.choice(['Adelie', 'Gentoo', 'Chinstrap'], 100)
+              })
+              
+              # Prepare features
+              X = data[['culmen_length_mm', 'culmen_depth_mm', 'flipper_length_mm', 'body_mass_g']]
+              y = data['species']
+              
+              # Train model
+              X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+              
+              with mlflow.start_run():
+                  # Train model
+                  model = RandomForestClassifier()
+                  model.fit(X_train, y_train)
+                  
+                  # Evaluate
+                  accuracy = model.score(X_test, y_test)
+                  
+                  # Log metrics
+                  mlflow.log_param('model_type', 'RandomForest')
+                  mlflow.log_metric('accuracy', accuracy)
+                  mlflow.sklearn.log_model(model, 'model')
+                  
+                  print(f'Training completed! Accuracy: {accuracy:.2f}')
+                  return accuracy
+
+          if __name__ == '__main__':
+              train()" > training.py
 
       - name: Start MLflow server
         run: |
           python -m mlflow server --host 127.0.0.1 --port 5000 &
           sleep 5
 
-      - name: Run test script
+      - name: Run training
         env:
           MLFLOW_TRACKING_URI: http://127.0.0.1:5000
         run: |
-          python test_training.py
+          python training.py
 
       - name: Upload artifacts
         if: always()
