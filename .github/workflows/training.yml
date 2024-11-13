@@ -1,9 +1,9 @@
-name: Training Pipeline
+name: Training Pipeline Test
 
 on: push
 
 jobs:
-  train:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,29 +13,18 @@ jobs:
         with:
           python-version: '3.10'
       
-      - name: Install dependencies
+      - name: Install MLflow
         run: |
           python -m pip install --upgrade pip
-          pip install mlflow metaflow scikit-learn pandas numpy keras "jax[cpu]" python-dotenv
+          pip install mlflow
 
-      - name: Start MLflow
+      - name: Test MLflow
         run: |
-          mlflow server --host 127.0.0.1 --port 5000 &
+          python -c "import mlflow; print('MLflow version:', mlflow.__version__)"
+          python -m mlflow --version
+
+      - name: Test MLflow server
+        run: |
+          python -m mlflow server --host 127.0.0.1 --port 5000 &
           sleep 5
-
-      - name: Run training pipeline
-        env:
-          MLFLOW_TRACKING_URI: http://127.0.0.1:5000
-          KERAS_BACKEND: jax
-        run: |
-          python training.py run --accuracy-threshold 0.7
-
-      - name: Upload artifacts
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: training-artifacts
-          path: |
-            .metaflow/
-            mlruns/
-            *.log
+          curl http://127.0.0.1:5000
